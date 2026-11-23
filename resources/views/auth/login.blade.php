@@ -6,7 +6,7 @@
     <title>Login - Sistem Parkir</title>
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen flex items-center justify-center bg-[#0a0a0a] overflow-hidden relative font-['Plus_Jakarta_Sans',sans-serif] px-4">
 
