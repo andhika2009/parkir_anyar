@@ -9,26 +9,17 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
         $users = User::all();
         return view('admin.user.index', compact('users'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
         return view('admin.user.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $request->validate([
@@ -46,65 +37,69 @@ class UserController extends Controller
             'status_aktif' => '1',
         ]);
 
-        return redirect()->route('admin.user.index')->with('success', 'User berhasil ditambahkan!');
+        return redirect()->route('admin.user.index')->with('success', 'User berhasil ditambahkan.');
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(string $id)
     {
         $user = User::findOrFail($id);
         return view('admin.user.show', compact('user'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-   public function edit($id)
-{
-    $user = User::findOrFail($id); // Mencari user berdasarkan ID
-    
-    return view('admin.user.edit', compact('user')); // Mengirim $user ke view
-}
+    public function edit(string $id)
+    {
+        $user = User::findOrFail($id);
+        return view('admin.user.edit', compact('user'));
+    }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, string $id)
     {
         $user = User::findOrFail($id);
 
         $request->validate([
             'nama_lengkap' => 'required|string|max:255',
-            'user_name'    => 'required|string|max:255|unique:tb_users,user_name,' . $id . ',id_user',
+            'user_name'    => 'required|string|max:255|unique:tb_users,user_name,' . $user->id_user . ',id_user',
+            'password'     => 'nullable|string|min:4',
             'role'         => 'required|in:admin,petugas,owner',
         ]);
 
-        $data = [
-            'nama_lengkap' => $request->nama_lengkap,
-            'user_name'    => $request->user_name,
-            'role'         => $request->role,
-        ];
+        $user->nama_lengkap = $request->nama_lengkap;
+        $user->user_name    = $request->user_name;
+        $user->role         = $request->role;
 
-        // Jika password diisi, update password baru dengan Hash
         if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
+            $user->password = Hash::make($request->password);
         }
 
-        $user->update($data);
+        $user->save();
 
-        return redirect()->route('admin.user.index')->with('success', 'Data user berhasil diperbarui!');
+        return redirect()->route('admin.user.index')->with('success', 'User berhasil diperbarui.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(string $id)
     {
         $user = User::findOrFail($id);
+
+        if ($user->role === 'admin') {
+            return back()->with('error', 'Akun admin tidak boleh dihapus.');
+        }
+
         $user->delete();
 
-        return redirect()->route('admin.user.index')->with('success', 'User berhasil dihapus!');
+        return redirect()->route('admin.user.index')->with('success', 'User berhasil dihapus.');
+    }
+
+    public function toggle(string $id)
+    {
+        $user = User::findOrFail($id);
+
+        if ($user->role === 'admin') {
+            return back()->with('error', 'Akun admin tidak bisa dinonaktifkan.');
+        }
+
+        $user->status_aktif = $user->status_aktif ? 0 : 1;
+        $user->save();
+
+        return back()->with('success', 'Status ' . $user->nama_lengkap . ' sekarang ' . ($user->status_aktif ? 'Aktif' : 'Nonaktif') . '.');
     }
 }

@@ -3,26 +3,47 @@
 namespace App\Http\Controllers\admin;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 
 class KendaraanController extends Controller
 {
-    private function getInitialKendaraans()
+    private function aturan()
     {
         return [
-            ['id_kendaraan' => 1, 'plat_nomor' => 'B 1234 ABC', 'jenis_kendaraan' => 'Mobil', 'pemilik' => 'Andi'],
-            ['id_kendaraan' => 2, 'plat_nomor' => 'B 5678 DEF', 'jenis_kendaraan' => 'Motor', 'pemilik' => 'Budi'],
+            'plat_nomor'      => ['required', 'string', 'max:20', 'regex:/^[A-Z]{1,2} ?[0-9]{1,4} ?[A-Z]{0,3}$/'],
+            'jenis_kendaraan' => ['required', 'string', 'max:50'],
+            'pemilik'         => ['nullable', 'string', 'max:100'],
         ];
+    }
+
+    private function pesan()
+    {
+        return [
+            'plat_nomor.required'      => 'Plat nomor wajib diisi.',
+            'plat_nomor.string'        => 'Plat nomor tidak valid.',
+            'plat_nomor.max'           => 'Plat nomor maksimal 20 karakter.',
+            'plat_nomor.regex'         => 'Format plat nomor tidak valid. Contoh yang benar: B 1234 ABC.',
+            'jenis_kendaraan.required' => 'Jenis kendaraan wajib dipilih.',
+            'jenis_kendaraan.string'   => 'Jenis kendaraan tidak valid.',
+            'jenis_kendaraan.max'      => 'Jenis kendaraan maksimal 50 karakter.',
+            'pemilik.string'           => 'Nama pemilik tidak valid.',
+            'pemilik.max'              => 'Nama pemilik maksimal 100 karakter.',
+        ];
+    }
+
+    private function rapikanPlat(Request $request)
+    {
+        $plat = strtoupper(trim(preg_replace('/\s+/', ' ', (string) $request->plat_nomor)));
+        $request->merge(['plat_nomor' => $plat]);
     }
 
     public function index()
     {
-        if (!session()->has('dummy_kendaraans')) {
-            session(['dummy_kendaraans' => $this->getInitialKendaraans()]);
-        }
-
-        $kendaraansData = session('dummy_kendaraans');
-        $kendaraans = collect(array_map(fn($item) => (object)$item, $kendaraansData));
+        $kendaraans = DB::table('tb_kendaraan')
+            ->select('id_kendaraan', 'plat_nomer as plat_nomor', 'jenis_kendaraan', 'warna_kendaraan', 'pemilik')
+            ->orderBy('id_kendaraan')
+            ->get();
 
         return view('admin.kendaraan.index', compact('kendaraans'));
     }
@@ -34,72 +55,57 @@ class KendaraanController extends Controller
 
     public function store(Request $request)
     {
-        $kendaraans = session('dummy_kendaraans', $this->getInitialKendaraans());
+        $this->rapikanPlat($request);
+        $request->validate($this->aturan(), $this->pesan());
 
-        $maxId = 0;
-        foreach ($kendaraans as $k) {
-            if ($k['id_kendaraan'] > $maxId) {
-                $maxId = $k['id_kendaraan'];
-            }
-        }
-
-        $newItem = [
-            'id_kendaraan' => $maxId + 1,
-            'plat_nomor' => $request->plat_nomor ?? 'B 9999 NEW',
-            'jenis_kendaraan' => $request->jenis_kendaraan ?? 'Mobil',
-            'pemilik' => $request->pemilik ?? 'Pengunjung',
-        ];
-
-        $kendaraans[] = $newItem;
-        session(['dummy_kendaraans' => $kendaraans]);
+        DB::table('tb_kendaraan')->insert([
+            'plat_nomer'      => $request->plat_nomor,
+            'jenis_kendaraan' => $request->jenis_kendaraan,
+            'pemilik'         => $request->pemilik ?? 'Pengunjung',
+            'created_at'      => now(),
+            'updated_at'      => now(),
+        ]);
 
         return redirect()->route('admin.kendaraan.index')->with('success', 'Kendaraan berhasil ditambahkan!');
     }
 
     public function edit($id)
     {
-        $kendaraans = session('dummy_kendaraans', $this->getInitialKendaraans());
-        $found = null;
+        $k = DB::table('tb_kendaraan')
+            ->select('id_kendaraan', 'plat_nomer as plat_nomor', 'jenis_kendaraan', 'warna_kendaraan', 'pemilik')
+            ->where('id_kendaraan', $id)
+            ->first();
 
-        foreach ($kendaraans as $k) {
-            if ($k['id_kendaraan'] == $id) {
-                $found = $k;
-                break;
-            }
-        }
+        abort_if(!$k, 404);
 
-        $kData = $found ?? ['id_kendaraan' => $id, 'plat_nomor' => 'B 1234 ABC', 'jenis_kendaraan' => 'Mobil', 'pemilik' => 'Andi'];
-        $kendaraan = (object) array_merge($kData, ['id' => $kData['id_kendaraan']]);
+        $k->id = $k->id_kendaraan;
+        $kendaraan = $k;
 
         return view('admin.kendaraan.edit', compact('kendaraan'));
     }
 
     public function update(Request $request, $id)
     {
-        $kendaraans = session('dummy_kendaraans', $this->getInitialKendaraans());
+        $this->rapikanPlat($request);
+        $request->validate($this->aturan(), $this->pesan());
 
-        foreach ($kendaraans as &$k) {
-            if ($k['id_kendaraan'] == $id) {
-                $k['plat_nomor'] = $request->plat_nomor ?? $k['plat_nomor'];
-                $k['jenis_kendaraan'] = $request->jenis_kendaraan ?? $k['jenis_kendaraan'];
-                $k['pemilik'] = $request->pemilik ?? $k['pemilik'];
-            }
-        }
-
-        session(['dummy_kendaraans' => $kendaraans]);
+        DB::table('tb_kendaraan')->where('id_kendaraan', $id)->update([
+            'plat_nomer'      => $request->plat_nomor,
+            'jenis_kendaraan' => $request->jenis_kendaraan,
+            'pemilik'         => $request->pemilik,
+            'updated_at'      => now(),
+        ]);
 
         return redirect()->route('admin.kendaraan.index')->with('success', 'Data kendaraan berhasil diupdate!');
     }
 
     public function destroy($id)
     {
-        $kendaraans = session('dummy_kendaraans', $this->getInitialKendaraans());
-
-        $newKendaraans = array_values(array_filter($kendaraans, function ($item) use ($id) {
-            return $item['id_kendaraan'] != $id;
-        }));
-
-        session(['dummy_kendaraans' => $newKendaraans]);
+        try {
+            DB::table('tb_kendaraan')->where('id_kendaraan', $id)->delete();
+        } catch (\Illuminate\Database\QueryException $e) {
+            return back()->with('error', 'Kendaraan tidak bisa dihapus karena sudah punya riwayat transaksi.');
+        }
 
         return redirect()->route('admin.kendaraan.index')->with('success', 'Data kendaraan berhasil dihapus!');
     }

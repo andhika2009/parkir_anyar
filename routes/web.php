@@ -43,7 +43,17 @@ Route::middleware(['auth'])->group(function () {
                 'totalTarif',
                 'logs'
             ));
+            
         })->name('admin.dashboard');
+         Route::get('/admin/log', [LogController::class, 'index'])
+            ->name('admin.log.index');
+
+        Route::patch('/admin/user/{id}/toggle', [UserController::class, 'toggle'])
+            ->name('admin.user.toggle');
+
+        Route::resource('admin/tarif', TarifController::class, [
+            'names' => 'admin.tarif'
+        ]);
 
         Route::get('/admin/log', [LogController::class, 'index'])
             ->name('admin.log.index');

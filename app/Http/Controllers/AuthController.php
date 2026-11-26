@@ -26,10 +26,20 @@ class AuthController extends Controller
             'password' => $request->input('password'),
         ];
 
-        if (Auth::attempt($credentials)) {
+               if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
             $user = Auth::user();
+
+            if (!$user->status_aktif) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return back()->withErrors([
+                    'username' => 'Akun nonaktif. Hubungi admin.',
+                ])->withInput();
+            }
 
             if ($user->role === 'admin') {
                 return redirect('/admin/dashboard');
